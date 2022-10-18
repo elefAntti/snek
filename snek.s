@@ -97,32 +97,55 @@ msleep:
   pop rax
   ret
 
+setNonBlocking:
+  xor rdi, rdi ; STDIN
+  mov rsi, 3   ; F_GETFL
+  mov rax, 72  ; fcntl
+  syscall
+  or rax, 2048 ; O_NONBLOCK
+  mov rdx, rax
+  mov rsi, 4   ; F_SETFL
+  xor rdi, rdi
+  syscall
+  ret
+
+setBlocking:
+  xor rdi, rdi ; STDIN
+  mov rsi, 3   ; F_GETFL
+  mov rax, 72  ; fcntl
+  syscall
+  and rax, ~2048 ; ~O_NONBLOCK
+  mov rdx, rax
+  mov rsi, 4   ; F_SETFL
+  xor rdi, rdi
+  syscall
+  ret
+
 drawFrame:
   push rbx
-  mov rbx, areaHeight 
-drawFrame_loop:
-  mov rdi, rbx
-  mov rsi, 2
-  call moveCursor
-  mov rdi, '*'
-  call putChar
-  dec rbx
-  jnz drawFrame_loop
-
-  mov rbx, areaWidth
-drawFrame_loop2:
   mov rdi, 1
-  mov rsi, rbx
+  mov rsi, 0
   call moveCursor
-  mov rdi, '*'
-  call putChar
-  mov rdi, areaHeight
-  mov rsi, rbx
-  call moveCursor
-  mov rdi, '*'
-  call putChar
+  mov rax, 1       ; write(
+  mov rdi, 1       ; stdout,
+  mov rsi, strEdge
+  mov rdx, edgeLen 
+  syscall          ; );
+
+  mov rbx, areaHeight 
+drawFrameLoop:
+  mov rax, 1       ; write(
+  mov rdi, 1       ; stdout,
+  mov rsi, strMid
+  mov rdx, edgeLen 
+  syscall          ; );
   dec rbx
-  jnz drawFrame_loop2
+  jnz drawFrameLoop
+  mov rax, 1       ; write(
+  mov rdi, 1       ; stdout,
+  mov rsi, strEdge
+  mov rdx, edgeLen 
+  syscall          ; );
   pop rbx
   ret
  
@@ -155,22 +178,82 @@ bluePrint:
   pop r12
   ret
 
+readTermios:
+  mov rax, 16 ;ioctl
+  xor rdi, rdi ; STDIN
+  mov rsi, TCGETS
+  mov rdx, termios
+  syscall
+  ret
+
+writeTermios:
+  mov rax, 16 ;ioctl
+  xor rdi, rdi ; STDIN
+  mov rsi, TCPUTS
+  mov rdx, termios
+  syscall
+  ret
+
+setNonCanonical:
+  push rax ;to align the stack
+  call readTermios
+  and dword [termios+12], ~CANON
+  and dword [termios+12], ~ECHO
+  call writeTermios
+  pop rax
+  ret
+
+setCanonical:
+  push rax ;to align the stack
+  call readTermios
+  or dword [termios+12], CANON
+  or dword [termios+12], ECHO
+  call writeTermios
+  pop rax
+  ret
+
+
+readKey:
+  mov rax, 0       ; read(
+  mov rdi, 0       ; stdin,
+  mov rsi, inkey   ; &inkey,
+  mov rdx, 1       ; size
+  syscall          ; );
+  ret
+
 _start:
   call clearScreen
   mov rbx, 10
   call drawFrame
 
+  call setNonCanonical
+  call setNonBlocking
+mainLoop:
+  call readKey
   mov rdi, 500
   call msleep
-  mov rdi, 500
-  call msleep
+  cmp byte[inkey], 27  ; ESC
+  jne mainLoop
+
+  call setCanonical
+  call setBlocking
   mov rax, 60      ; exit(
   mov rdi, 0       ;  EXIT_SUCCESS
   syscall          ; );
 
 section .bss
   msgBuff: resb   64 ; 64 byte buffer   
+  termios: resb   36 
+  CANON: equ 1<<1 
+  ECHO: equ 1<<3 
+  inkey: resb 4
+  headx: resw 1
+  heady: resw 1
+
+
 section .rodata
+  TCGETS: equ 0x5401
+  TCPUTS: equ 0x5402
   areaWidth: equ 60
   areaHeight: equ 30
   strCUP: db 0o33, "[5;5H"
@@ -179,4 +262,6 @@ section .rodata
   defaultcolor: db 0o33, "[0m"
   defaultcolorlen: equ $ - defaultcolor
   strClear: db 0o33, "c"
-
+  strEdge: db "+----------------------------------------+", 10
+  strMid:  db "|                                        |", 10
+  edgeLen: equ $ - strMid
