@@ -3,6 +3,6 @@ RUN apt-get update && apt-get install -y \
     build-essential nasm
 ENV TERM xterm-256color
 COPY . .
-RUN make hello
+RUN make snek
 # CMD ["bash", "-i"]
-CMD ["./hello"]
+CMD ["./snek"]
