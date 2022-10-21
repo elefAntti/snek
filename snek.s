@@ -236,14 +236,9 @@ _start:
   mov qword [headx], 2
   mov qword [heady], areaHeight>>1 
 mainLoop:
-  call readKey
   mov rdi, 500
   call msleep
-  mov rdi, qword [heady]
-  mov rsi, qword [headx]
-  call moveCursor
-  mov rdi, '*'
-  call putChar
+  call readKey
   cmp byte[inkey], 'd'
   je right_pressed
   cmp byte[inkey], 'a'
@@ -266,6 +261,11 @@ left_pressed:
 right_pressed:
   add qword [headx], 1
 keys_handled:
+  mov rdi, qword [heady]
+  mov rsi, qword [headx]
+  call moveCursor
+  mov rdi, '*'
+  call putChar
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
 
