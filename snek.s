@@ -226,6 +226,46 @@ readKey_skip:
   pop rax
   ret
 
+
+; Store snake coordinates in the buffer and grow the snake towards the target len
+; return rax = tailx or 0 if no erasing needs to be done
+;        rdx = tailx or 0
+storeSnake:
+  push rbx
+  mov rbx, qword [snakeHeadIdx]
+  mov rax, qword [headx]
+  mov qword [snakeX + 8 * rbx], rax
+  mov rax, qword [heady]
+  mov qword [snakeY + 8 * rbx], rax
+  inc rbx 
+  cmp rbx, maxLen
+  jl skip_head_wraparound
+  mov rbx, 0
+skip_head_wraparound:
+  mov qword [snakeHeadIdx], rbx
+  mov rbx, qword[snakeTargetLen]
+  cmp qword[snakeLen], rbx
+  jl need_to_grow
+  mov rbx, qword [snakeTailIdx]
+  mov r8, qword [snakeX + rbx * 8]
+  mov r9, qword [snakeY + rbx * 8]
+  inc rbx
+  cmp rbx, maxLen
+  jl skip_tail_wraparound
+  mov rbx, 0
+skip_tail_wraparound:
+  mov qword [snakeTailIdx], rbx
+  jmp skip_grow
+need_to_grow:
+  inc qword[snakeLen] ; TODO: ensure that it doesn't exceed maxLen
+  mov r8, 0
+  mov r9, 0
+skip_grow:
+  pop rbx
+  mov rax, r8
+  mov rdx, r9
+  ret
+
 _start:
   call clearScreen
   call hideCursor
@@ -235,6 +275,7 @@ _start:
   call setNonCanonical
   mov qword [headx], 2
   mov qword [heady], areaHeight>>1 
+  mov qword [snakeTargetLen], 10
 mainLoop:
   mov rdi, 500
   call msleep
@@ -266,6 +307,12 @@ keys_handled:
   call moveCursor
   mov rdi, '*'
   call putChar
+  call storeSnake
+  mov rsi, rax
+  mov rdi, rdx
+  call moveCursor
+  mov rdi, ' '
+  call putChar
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
 
@@ -285,6 +332,13 @@ section .bss
   inkey: resb 4
   headx: resq 1
   heady: resq 1
+  maxLen: equ 200
+  snakeX: resq maxLen
+  snakeY: resq maxLen
+  snakeHeadIdx: resq 1
+  snakeTailIdx: resq 1
+  snakeLen: resq 1
+  snakeTargetLen: resq 1
 
 section .rodata
   TCGETS: equ 0x5401
