@@ -214,11 +214,24 @@ setCanonical:
 
 
 readKey:
+  push rax
+  mov rax, 4294967296
+  mov qword [rsp], rax
+  mov rax, 7       ; poll(
+  ;mov rdi, pollfd_buffer
+  mov rdi, rsp
+  mov rsi, 1       ; nfds
+  mov rdx, 0       ; timeout
+  syscall          ; );
+  cmp rax, 1
+  jl readKey_skip
   mov rax, 0       ; read(
   mov rdi, 0       ; stdin,
   mov rsi, inkey   ; &inkey,
   mov rdx, 1       ; size
   syscall          ; );
+readKey_skip:
+  pop rax
   ret
 
 _start:
@@ -228,15 +241,46 @@ _start:
 
   call setNonCanonical
   call setNonBlocking
+  mov qword [headx], 2
+  mov qword [heady], areaHeight>>1 
 mainLoop:
   call readKey
   mov rdi, 500
   call msleep
+  mov rdi, qword [heady]
+  mov rsi, qword [headx]
+  call moveCursor
+  mov rdi, '*'
+  call putChar
+  cmp byte[inkey], 'd'
+  je right_pressed
+  cmp byte[inkey], 'a'
+  je left_pressed
+  cmp byte[inkey], 's'
+  je down_pressed
+  cmp byte[inkey], 'w'
+  je up_pressed
+  jmp keys_handled
+
+up_pressed:
+  sub qword [heady], 1
+  jmp keys_handled
+down_pressed:
+  add qword [heady], 1
+  jmp keys_handled
+left_pressed:
+  sub qword [headx], 1
+  jmp keys_handled
+right_pressed:
+  add qword [headx], 1
+keys_handled:
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
 
+exit:
   call setCanonical
   call setBlocking
+  call clearScreen
   mov rax, 60      ; exit(
   mov rdi, 0       ;  EXIT_SUCCESS
   syscall          ; );
@@ -247,9 +291,8 @@ section .bss
   CANON: equ 1<<1 
   ECHO: equ 1<<3 
   inkey: resb 4
-  headx: resw 1
-  heady: resw 1
-
+  headx: resq 1
+  heady: resq 1
 
 section .rodata
   TCGETS: equ 0x5401
