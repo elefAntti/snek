@@ -281,31 +281,39 @@ wall_collision:
   mov rax, 1
   ret
 
-_start:
-  call clearScreen
-  call hideCursor
-  mov rbx, 10
-  call drawFrame
+;rdi x coord, rsi ycoord
+collisionPtr:
+  dec rdi
+  dec rsi
+  imul rsi, rsi, areaWidth
+  add rdi, rsi
+  add rdi, collisionArray
+  mov rax, rdi 
+  ret
 
-  call setNonCanonical
-  mov qword [headx], 2
-  mov qword [heady], areaHeight>>1 
-  mov qword [snakeTargetLen], 10
-mainLoop:
-  mov rdi, 500
-  mov rdx, 0
-  call msleep
-  call readKey
+handleDirKeys:
   cmp byte[inkey], 'd'
-  je right_pressed
+  je key_ok
   cmp byte[inkey], 'a'
-  je left_pressed
+  je key_ok
   cmp byte[inkey], 's'
-  je down_pressed
+  je key_ok
   cmp byte[inkey], 'w'
+  je key_ok
+  jmp keys_fail
+key_ok:
+  mov al, byte[inkey]
+  mov byte[snakeDir], al
+keys_fail:
+  cmp byte[snakeDir], 'd'
+  je right_pressed
+  cmp byte[snakeDir], 'a'
+  je left_pressed
+  cmp byte[snakeDir], 's'
+  je down_pressed
+  cmp byte[snakeDir], 'w'
   je up_pressed
   jmp keys_handled
-
 up_pressed:
   sub qword [heady], 1
   jmp keys_handled
@@ -318,17 +326,51 @@ left_pressed:
 right_pressed:
   add qword [headx], 1
 keys_handled:
+  ret
+
+_start:
+  call clearScreen
+  call hideCursor
+  mov rbx, 10
+  call drawFrame
+
+  call setNonCanonical
+  mov qword [headx], 2
+  mov qword [heady], areaHeight>>1 
+  mov qword [snakeTargetLen], 10
+  mov byte [snakeDir], 'd'
+mainLoop:
+  mov rdi, 500
+  mov rdx, 0
+  call msleep
+  call readKey
+  call handleDirKeys
   mov rdi, qword [heady]
   mov rsi, qword [headx]
   call moveCursor
+  mov rdi, qword [heady]
+  mov rsi, qword [headx]
+  call collisionPtr
+  cmp byte[rax], 1
+  je die
+  mov byte[rax], 1
   mov rdi, '*'
   call putChar
   call storeSnake
+  cmp rax, 0
+  je skip_erase
+  push rax
+  push rdx
   mov rsi, rax
   mov rdi, rdx
   call moveCursor
+  pop rdi
+  pop rsi
+  call collisionPtr
+  mov byte[rax], 0
   mov rdi, ' '
   call putChar
+skip_erase:
   call detectWallCollisions
   cmp rax, 1
   je die
@@ -369,6 +411,8 @@ section .bss
   snakeTailIdx: resq 1
   snakeLen: resq 1
   snakeTargetLen: resq 1
+  snakeDir: resb 1
+  collisionArray: resb areaWidth*areaHeight
 
 section .rodata
   TCGETS: equ 0x5401
