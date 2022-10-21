@@ -113,30 +113,6 @@ msleep:
   pop rax
   ret
 
-setNonBlocking:
-  xor rdi, rdi ; STDIN
-  mov rsi, 3   ; F_GETFL
-  mov rax, 72  ; fcntl
-  syscall
-  or rax, 2048 ; O_NONBLOCK
-  mov rdx, rax
-  mov rsi, 4   ; F_SETFL
-  xor rdi, rdi
-  syscall
-  ret
-
-setBlocking:
-  xor rdi, rdi ; STDIN
-  mov rsi, 3   ; F_GETFL
-  mov rax, 72  ; fcntl
-  syscall
-  and rax, ~2048 ; ~O_NONBLOCK
-  mov rdx, rax
-  mov rsi, 4   ; F_SETFL
-  xor rdi, rdi
-  syscall
-  ret
-
 drawFrame:
   push rbx
   mov rdi, 1
@@ -257,7 +233,6 @@ _start:
   call drawFrame
 
   call setNonCanonical
-  call setNonBlocking
   mov qword [headx], 2
   mov qword [heady], areaHeight>>1 
 mainLoop:
@@ -296,7 +271,6 @@ keys_handled:
 
 exit:
   call setCanonical
-  call setBlocking
   call clearScreen
   call showCursor
   mov rax, 60      ; exit(
