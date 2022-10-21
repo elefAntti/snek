@@ -71,6 +71,22 @@ clearScreen:
   syscall
   ret
 
+hideCursor:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, strHideCursor
+  mov rdx, strHideCursorLen
+  syscall
+  ret
+
+showCursor:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, strShowCursor
+  mov rdx, strShowCursorLen
+  syscall
+  ret
+
 ; put a single cher from register rdi to screen
 putChar:
   push rdi
@@ -236,6 +252,7 @@ readKey_skip:
 
 _start:
   call clearScreen
+  call hideCursor
   mov rbx, 10
   call drawFrame
 
@@ -281,6 +298,7 @@ exit:
   call setCanonical
   call setBlocking
   call clearScreen
+  call showCursor
   mov rax, 60      ; exit(
   mov rdi, 0       ;  EXIT_SUCCESS
   syscall          ; );
@@ -304,6 +322,10 @@ section .rodata
   bluelen: equ $ - blue
   defaultcolor: db 0o33, "[0m"
   defaultcolorlen: equ $ - defaultcolor
+  strShowCursor: db 0o33, "[?25h"
+  strShowCursorLen: equ $ - strShowCursor
+  strHideCursor: db 0o33, "[?25l"
+  strHideCursorLen: equ $ - strHideCursor
   strClear: db 0o33, "c"
   strEdge: db "+----------------------------------------+", 10
   strMid:  db "|                                        |", 10
