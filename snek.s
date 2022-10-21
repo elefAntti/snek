@@ -99,12 +99,12 @@ putChar:
   ret
 
 ; Can be used to sleep for rdi milliseconds, where rdi < 1000
+; and rdx seconds
 msleep:
   imul rdi, rdi, 1000 ; ms to us
   imul rdi, rdi, 1000 ; us to ns
   push rdi            ; tv_nsec
-  xor rax, rax
-  push rax            ; tv_sec
+  push rdx            ; tv_sec
   mov rax, 35         ; nanosleep
   mov rdi, rsp
   mov rdx, rsp
@@ -266,6 +266,21 @@ skip_grow:
   mov rdx, r9
   ret
 
+detectWallCollisions:
+  mov rax, 0
+  cmp qword [headx], 1
+  jle wall_collision
+  cmp qword [heady], 2
+  jle wall_collision
+  cmp qword [headx], areaWidth
+  jg wall_collision
+  cmp qword [heady], areaHeight
+  jg wall_collision
+  ret
+wall_collision:
+  mov rax, 1
+  ret
+
 _start:
   call clearScreen
   call hideCursor
@@ -278,6 +293,7 @@ _start:
   mov qword [snakeTargetLen], 10
 mainLoop:
   mov rdi, 500
+  mov rdx, 0
   call msleep
   call readKey
   cmp byte[inkey], 'd'
@@ -313,9 +329,23 @@ keys_handled:
   call moveCursor
   mov rdi, ' '
   call putChar
+  call detectWallCollisions
+  cmp rax, 1
+  je die
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
-
+die:
+  mov rdi, 0
+  mov rsi, 10
+  call moveCursor
+  mov rax, 1 ;write
+  mov rdi, 1 ;stdout
+  mov rsi, strDeath
+  mov rdx, strDeathLen
+  syscall
+  mov rdi, 0
+  mov rdx, 3
+  call msleep
 exit:
   call setCanonical
   call clearScreen
@@ -343,7 +373,7 @@ section .bss
 section .rodata
   TCGETS: equ 0x5401
   TCPUTS: equ 0x5402
-  areaWidth: equ 60
+  areaWidth: equ 40
   areaHeight: equ 30
   strCUP: db 0o33, "[5;5H"
   blue: db 0o33, "[94m"
@@ -355,6 +385,8 @@ section .rodata
   strHideCursor: db 0o33, "[?25l"
   strHideCursorLen: equ $ - strHideCursor
   strClear: db 0o33, "c"
-  strEdge: db "+----------------------------------------+", 10
-  strMid:  db "|                                        |", 10
+  strEdge: db "+-----------------------------------------+", 10
+  strMid:  db "|                                         |", 10
   edgeLen: equ $ - strMid
+  strDeath: db "Oh noes!"
+  strDeathLen: equ $ - strDeath
