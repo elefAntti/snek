@@ -357,12 +357,12 @@ placeApple_again:
 detectWallCollisions:
   mov rax, 0
   cmp qword [headx], 1
-  jle wall_collision
+  jl wall_collision
   cmp qword [heady], 2
-  jle wall_collision
-  cmp qword [headx], areaWidth
+  jl wall_collision
+  cmp qword [headx], areaWidth + 1
   jg wall_collision
-  cmp qword [heady], areaHeight
+  cmp qword [heady], areaHeight + 1
   jg wall_collision
   ret
 wall_collision:
@@ -430,11 +430,14 @@ _start:
   call lfsrRnd_init
   call placeApple
 mainLoop:
-  mov rdi, 300         ; The wait len in milliseconds
+  mov rdi, 200         ; The wait len in milliseconds
   mov rdx, 0
   call msleep
   call readKey
   call handleDirKeys
+  call detectWallCollisions
+  cmp rax, 1
+  je die
   mov rdi, qword [heady]
   mov rsi, qword [headx]
   call moveCursor
@@ -480,9 +483,6 @@ notAnApple:
   mov rdi, ' '         ; Clear the snake from screen
   call putChar
 skip_erase:
-  call detectWallCollisions
-  cmp rax, 1
-  je die
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
   jmp exit
