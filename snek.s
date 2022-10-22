@@ -197,6 +197,8 @@ writeTermios:
   syscall
   ret
 
+; In the non-canonical mode, the terminal doesnt wait for enter key
+; Also turn off terminal echo, so the pressed keys dont get printed
 setNonCanonical:
   push rax ;to align the stack
   call readTermios
@@ -215,10 +217,11 @@ setCanonical:
   pop rax
   ret
 
-
+; First poll whether there are characters to read
+; This avoids blocking
 readKey:
   push rax
-  mov rax, 4294967296
+  mov rax, 4294967296 ; 32bits fd 0, 16bits 1 POLLIN, 16 bits 0 for the result of poll 
   mov qword [rsp], rax
   mov rax, 7       ; poll(
   ;mov rdi, pollfd_buffer
@@ -268,7 +271,11 @@ skip_tail_wraparound:
   mov qword [snakeTailIdx], rbx
   jmp skip_grow
 need_to_grow:
-  inc qword[snakeLen] ; TODO: ensure that it doesn't exceed maxLen
+  inc qword[snakeLen] 
+  cmp qword[snakeLen], maxLen
+  jl len_ok
+  mov qword[snakeLen], maxLen - 1
+len_ok:
   mov r8, 0
   mov r9, 0
 skip_grow:
