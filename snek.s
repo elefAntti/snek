@@ -116,9 +116,14 @@ msleep:
 
 drawFrame:
   push rbx
-  mov rdi, 1
+  mov rdi, 0
   mov rsi, 0
   call moveCursor
+  mov rax, 1       ; write(
+  mov rdi, 1       ; stdout,
+  mov rsi, strScore
+  mov rdx, strScoreLen 
+  syscall          ; );
   mov rax, 1       ; write(
   mov rdi, 1       ; stdout,
   mov rsi, strEdge
@@ -138,6 +143,11 @@ drawFrameLoop:
   mov rdi, 1       ; stdout,
   mov rsi, strEdge
   mov rdx, edgeLen 
+  syscall          ; );
+  mov rax, 1       ; write(
+  mov rdi, 1       ; stdout,
+  mov rsi, strHelp
+  mov rdx, strHelpLen 
   syscall          ; );
   pop rbx
   ret
@@ -413,7 +423,7 @@ _start:
   call lfsrRnd_init
   call placeApple
 mainLoop:
-  mov rdi, 500
+  mov rdi, 300         ; The wait len in milliseconds
   mov rdx, 0
   call msleep
   call readKey
@@ -435,10 +445,22 @@ mainLoop:
   call placeApple
   add word[score], 1
   add word[snakeTargetLen], 2
+  mov rdi, 0           ; Move to score position
+  mov rsi, strScoreLen - 2
+  call moveCursor
+  xor rsi, rsi         ; Preparing to print the score
+  mov rdi, msgBuff     ; the first argument is the buffer
+  mov sil, byte[score] ; the second argument
+  call numForm
+  mov rdx, rax 
+  mov rax, 1 ;write
+  mov rdi, 1 ;stdout
+  mov rsi, msgBuff
+  syscall
 notAnApple:
-  call storeSnake
-  cmp rax, 0
-  je skip_erase
+  call storeSnake      ; Store snake head to buffer
+  cmp rax, 0           ; Rax is 0 if snake grew, otherwise rax = tailx, rdx = taily 
+  je skip_erase        ; When growing, don't erase the tail
   push rax
   push rdx
   mov rsi, rax
@@ -447,8 +469,8 @@ notAnApple:
   pop rdi
   pop rsi
   call collisionPtr
-  mov byte[rax], 0
-  mov rdi, ' '
+  mov byte[rax], 0     ; Clear the snake from collision buffer
+  mov rdi, ' '         ; Clear the snake from screen
   call putChar
 skip_erase:
   call detectWallCollisions
@@ -517,3 +539,7 @@ section .rodata
   edgeLen: equ $ - strMid
   strDeath: db "Oh noes!"
   strDeathLen: equ $ - strDeath
+  strScore: db "Snek                              Score:0",10
+  strScoreLen: equ $ - strScore
+  strHelp: db "       WASD to turn, ESC to quit",10
+  strHelpLen: equ $ - strHelp
