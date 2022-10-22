@@ -113,6 +113,7 @@ msleep:
   pop rax
   ret
 
+
 drawFrame:
   push rbx
   mov rdi, 1
@@ -266,6 +267,76 @@ skip_grow:
   mov rdx, r9
   ret
 
+
+lfsrRnd_init:
+  mov word[lfsrState], 0xACE1
+  ret
+
+;Linear-feedback shift register
+;bit = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5)) & 1u;
+;lfsr = (lfsr >> 1) | (bit << 15);
+lfsrRnd:
+  mov r8w, word[lfsrState]
+  mov r9w, r8w
+  mov r10w, r8w
+  shr r10w, 2
+  xor r9w, r10w
+  shr r10w, 1
+  xor r9w, r10w
+  shr r10w, 2
+  xor r9w, r10w
+  and r9w, 1 ; bit
+  shl r9w, 15
+  shr r8w, 1
+  or r8w, r9w
+  mov word[lfsrState], r8w
+  ret
+
+;rsi = maxRnd
+getRnd:
+  xor rax, rax
+  mov ax, word[lfsrState]
+  cqo
+  mov rcx, rsi
+  div rcx ; rax = rax/rsi, rdx = rax%rsi
+  mov rax, rdx
+  push rax
+  call lfsrRnd
+  pop rax
+  ret
+
+placeApple:
+  push rax
+placeApple_again:
+  mov rsi, areaWidth
+  dec rsi
+  call getRnd
+  inc rax
+  mov qword[rsp], rax
+  mov rsi, areaHeight  
+  dec rsi
+  dec rsi
+  call getRnd
+  inc rax
+  inc rax
+  mov rbx, rax
+  mov rdi, rbx 
+  mov rsi, qword [rsp]
+  call collisionPtr
+  cmp byte [rax], 0
+  jne placeApple_again
+  mov byte [rax], 2 
+  mov rdi, rbx 
+  mov rsi, qword [rsp]
+  call moveCursor
+  mov rdi, '@'
+  call putChar
+  pop rax
+  ret
+  
+  
+; x > 1, x <= areaWidth
+; y > 2, y <= areaHeight
 detectWallCollisions:
   mov rax, 0
   cmp qword [headx], 1
@@ -339,6 +410,8 @@ _start:
   mov qword [heady], areaHeight>>1 
   mov qword [snakeTargetLen], 10
   mov byte [snakeDir], 'd'
+  call lfsrRnd_init
+  call placeApple
 mainLoop:
   mov rdi, 500
   mov rdx, 0
@@ -348,14 +421,21 @@ mainLoop:
   mov rdi, qword [heady]
   mov rsi, qword [headx]
   call moveCursor
+  mov rdi, '*'
+  call putChar
   mov rdi, qword [heady]
   mov rsi, qword [headx]
   call collisionPtr
-  cmp byte[rax], 1
-  je die
+  mov sil, byte[rax]
   mov byte[rax], 1
-  mov rdi, '*'
-  call putChar
+  cmp sil, 1
+  je die
+  cmp sil, 2 ; The apple
+  jne notAnApple
+  call placeApple
+  add word[score], 1
+  add word[snakeTargetLen], 2
+notAnApple:
   call storeSnake
   cmp rax, 0
   je skip_erase
@@ -376,6 +456,7 @@ skip_erase:
   je die
   cmp byte[inkey], 27  ; ESC
   jne mainLoop
+  jmp exit
 die:
   mov rdi, 0
   mov rsi, 10
@@ -397,6 +478,8 @@ exit:
   syscall          ; );
 
 section .bss
+  areaWidth: equ 40
+  areaHeight: equ 30
   msgBuff: resb   64 ; 64 byte buffer   
   termios: resb   36 
   CANON: equ 1<<1 
@@ -412,13 +495,13 @@ section .bss
   snakeLen: resq 1
   snakeTargetLen: resq 1
   snakeDir: resb 1
+  score: resb 1
+  lfsrState: resw 1
   collisionArray: resb areaWidth*areaHeight
 
 section .rodata
   TCGETS: equ 0x5401
   TCPUTS: equ 0x5402
-  areaWidth: equ 40
-  areaHeight: equ 30
   strCUP: db 0o33, "[5;5H"
   blue: db 0o33, "[94m"
   bluelen: equ $ - blue
