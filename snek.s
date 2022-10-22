@@ -87,6 +87,29 @@ showCursor:
   syscall
   ret
 
+snakeColor:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, strGreen
+  mov rdx, strGreenLen
+  syscall
+  ret
+
+appleColor:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, strRed
+  mov rdx, strRedLen
+  syscall
+  ret
+
+defaultColor:
+  mov rax, 1
+  mov rdi, 1
+  mov rsi, strDefaultColor
+  mov rdx, strDefaultColorLen
+  syscall
+  ret
 ; put a single cher from register rdi to screen
 putChar:
   push rdi
@@ -152,35 +175,6 @@ drawFrameLoop:
   pop rbx
   ret
  
-bluePrint:
-  push r12
-  push r13
-
-  mov r12, rsi
-  mov r13, rdx
-
-  mov rax, 1       ; write(
-  mov rdi, 1       ; stdout,
-  mov rsi, blue     
-  mov rdx, bluelen 
-  syscall          ; );
-
-  mov rax, 1       ; write(
-  mov rdi, 1       ; stdout,
-  mov rsi, r12 
-  mov rdx, r13 
-  syscall          ; );
-
-  mov rax, 1       ; write(
-  mov rdi, 1       ; stdout,
-  mov rsi, defaultcolor
-  mov rdx, defaultcolorlen 
-  syscall          ; );
-
-  pop r13
-  pop r12
-  ret
-
 readTermios:
   mov rax, 16 ;ioctl
   xor rdi, rdi ; STDIN
@@ -343,6 +337,7 @@ placeApple_again:
   cmp byte [rax], 0
   jne placeApple_again
   mov byte [rax], 2 
+  call appleColor
   mov rdi, rbx 
   mov rsi, qword [rsp]
   call moveCursor
@@ -441,6 +436,7 @@ mainLoop:
   mov rdi, qword [heady]
   mov rsi, qword [headx]
   call moveCursor
+  call snakeColor
   mov rdi, '*'
   call putChar
   mov rdi, qword [heady]
@@ -458,6 +454,7 @@ mainLoop:
   mov rdi, 0           ; Move to score position
   mov rsi, strScoreLen - 2
   call moveCursor
+  call defaultColor
   xor rsi, rsi         ; Preparing to print the score
   mov rdi, msgBuff     ; the first argument is the buffer
   mov sil, byte[score] ; the second argument
@@ -502,6 +499,7 @@ exit:
   call setCanonical
   call clearScreen
   call showCursor
+  call defaultColor
   mov rax, 60      ; exit(
   mov rdi, 0       ;  EXIT_SUCCESS
   syscall          ; );
@@ -531,11 +529,12 @@ section .bss
 section .rodata
   TCGETS: equ 0x5401
   TCPUTS: equ 0x5402
-  strCUP: db 0o33, "[5;5H"
-  blue: db 0o33, "[94m"
-  bluelen: equ $ - blue
-  defaultcolor: db 0o33, "[0m"
-  defaultcolorlen: equ $ - defaultcolor
+  strGreen: db 0o33, "[32m"
+  strGreenLen: equ $ - strGreen
+  strRed: db 0o33, "[31m"
+  strRedLen: equ $ - strRed
+  strDefaultColor: db 0o33, "[0m"
+  strDefaultColorLen: equ $ - strDefaultColor
   strShowCursor: db 0o33, "[?25h"
   strShowCursorLen: equ $ - strShowCursor
   strHideCursor: db 0o33, "[?25l"
