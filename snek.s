@@ -214,9 +214,8 @@ setCanonical:
 ; First poll whether there are characters to read
 ; This avoids blocking
 readKey:
+  mov rax, 0x100000000; ; 32bits fd 0, 16bits 1 POLLIN, 16 bits 0 for the result of poll   
   push rax
-  mov rax, 4294967296 ; 32bits fd 0, 16bits 1 POLLIN, 16 bits 0 for the result of poll 
-  mov qword [rsp], rax
   mov rax, 7       ; poll(
   ;mov rdi, pollfd_buffer
   mov rdi, rsp
@@ -450,7 +449,7 @@ mainLoop:
   jne notAnApple
   call placeApple
   add word[score], 1
-  add word[snakeTargetLen], 2
+  add word[snakeTargetLen], 4
   mov rdi, 0           ; Move to score position
   mov rsi, strScoreLen - 2
   call moveCursor
