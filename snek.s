@@ -265,10 +265,6 @@ skip_tail_wraparound:
   jmp skip_grow
 need_to_grow:
   inc qword[snakeLen] 
-  cmp qword[snakeLen], maxLen
-  jl len_ok
-  mov qword[snakeLen], maxLen - 1
-len_ok:
   mov r8, 0
   mov r9, 0
 skip_grow:
@@ -450,6 +446,10 @@ mainLoop:
   call placeApple
   add word[score], 1
   add word[snakeTargetLen], 4
+  cmp word[snakeTargetLen], maxLen
+  jl lenOk
+  mov word[snakeTargetLen], maxLen
+lenOk:
   mov rdi, 0           ; Move to score position
   mov rsi, strScoreLen - 2
   call moveCursor
