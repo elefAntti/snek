@@ -3,6 +3,92 @@ global _start
 
 section .text
 
+;int open(const char *pathname, int flags, mode_t mode);z 
+openScores:
+  mov rax, 2  ; open
+  mov rdi, strScoreFileName
+  mov rsi, O_RDWR
+  mov rdx, 0
+  syscall 
+  mov qword[scoresFd], rax
+  mov rax, 9 ; mmap
+  mov rdi, 0 ; addr = NULL
+  mov rsi, 40 ; length = 40 bytes
+  mov rdx, PROT_RW ; prot = PROT_READ | PROT_WRITE
+  mov r10, MAP_PRIVATE ; flags
+  mov r8, qword[scoresFd] ; fd
+  mov r9, 0
+  syscall
+  mov qword[scoresTable], rax
+  ret
+
+printScores:
+  push rbx
+  call clearScreen
+  mov rbx, 0
+  mov rdi, 0
+  mov rsi, 0
+  call moveCursor
+  mov rsi, strHighScores
+  mov rax, 1 ;write
+  mov rdi, 1
+  mov rdx, strHighScoresLen 
+  syscall
+  mov rdi, 2
+  mov rsi, 0
+  call moveCursor
+score_loop:
+  mov r8, qword[scoresTable]
+  lea rsi, dword[r8 + 4*rbx]
+  mov rax, 1 ;write
+  mov rdi, 1
+  mov rdx, 3 
+  syscall
+;move cursor to coords given in rdi, rsi
+  mov rdi, rbx
+  inc rdi
+  inc rdi
+  mov rsi, 10
+  call moveCursor
+  mov rdi, msgBuff
+  xor rsi, rsi
+  mov r8, qword[scoresTable]
+  mov sil, byte[r8 + 4*rbx + 3]
+  call numForm
+  mov rsi, msgBuff
+  mov rax, 1 ;write
+  mov rdi, 1
+  mov rdx, 2 
+  syscall
+  mov rdi, 10 ; New line
+  call putChar
+  inc rbx
+  cmp rbx, 10 
+  jl score_loop
+  pop rbx
+  ret
+
+waitForEscEnter:
+  push rbx
+  mov rdi, 10 ; New line
+  call putChar
+  mov rsi, strHighScoreHelp
+  mov rax, 1 ;write
+  mov rdi, 1
+  mov rdx, strHighScoreHelpLen 
+  syscall
+waitForEscEnter_loop:
+  mov rdi, 200         ; The wait len in milliseconds
+  mov rdx, 0
+  call msleep
+  call readKey
+  cmp byte[inkey], 27
+  je exitGame
+  cmp byte[inkey], 10
+  jne waitForEscEnter_loop
+  pop rbx
+  ret
+
 ; write a two digit number in a buffer
 ; rdi is the adress of a buffer
 ; rsi is the number to format
@@ -110,7 +196,7 @@ defaultColor:
   mov rdx, strDefaultColorLen
   syscall
   ret
-; put a single cher from register rdi to screen
+; put a single char from register rdi to screen
 putChar:
   push rdi
   mov rsi, rsp
@@ -407,19 +493,29 @@ keys_handled:
   ret
 
 _start:
+  push rbx
+  call setNonCanonical
+  call hideCursor
+  call openScores
+state_loop:
+  call printScores
+  call waitForEscEnter
+  call snekMain
+  jmp state_loop
+
+snekMain:
   call clearScreen
   call hideCursor
   mov rbx, 10
   call drawFrame
 
-  call setNonCanonical
   mov qword [headx], 2
   mov qword [heady], areaHeight>>1 
   mov qword [snakeTargetLen], 10
   mov byte [snakeDir], 'd'
   call lfsrRnd_init
   call placeApple
-mainLoop:
+gameLoop:
   mov rdi, 200         ; The wait len in milliseconds
   mov rdx, 0
   call msleep
@@ -480,7 +576,7 @@ notAnApple:
   call putChar
 skip_erase:
   cmp byte[inkey], 27  ; ESC
-  jne mainLoop
+  jne gameLoop
   jmp exit
 die:
   mov rdi, 0
@@ -495,6 +591,12 @@ die:
   mov rdx, 3
   call msleep
 exit:
+  call clearScreen
+  call defaultColor
+  mov byte[inkey], 0
+  ret
+
+exitGame:
   call setCanonical
   call clearScreen
   call showCursor
@@ -510,6 +612,10 @@ section .bss
   termios: resb   36 
   CANON: equ 1<<1 
   ECHO: equ 1<<3 
+  O_RDWR: equ 2
+  PROT_RW: equ 3
+  MAP_PRIVATE: equ 2
+  MAP_SHARED: equ 1 ; Allow write to file
   inkey: resb 4
   headx: resq 1
   heady: resq 1
@@ -523,6 +629,8 @@ section .bss
   snakeDir: resb 1
   score: resb 1
   lfsrState: resw 1
+  scoresFd: resq 1
+  scoresTable: resq 1
   collisionArray: resb areaWidth*areaHeight
 
 section .rodata
@@ -548,3 +656,9 @@ section .rodata
   strScoreLen: equ $ - strScore
   strHelp: db "       WASD to turn, ESC to quit",10
   strHelpLen: equ $ - strHelp
+  strScoreFileName: db "snekdata/highscores.dat", 0
+  strScoreFileNameLen: equ $ - strScoreFileName
+  strHighScores: db "High scores:",10
+  strHighScoresLen: equ $ - strHighScores
+  strHighScoreHelp: db "ESC to exit, ENTER to play",10
+  strHighScoreHelpLen: equ $ - strHighScoreHelp
