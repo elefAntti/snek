@@ -1,8 +1,8 @@
-# Snek - A simple Linux console mode snake game in X86-64 Assembler
+# Snek - A simple Linux console mode snake game in X86-64 Assembly
 
 ## Overview
 
-A small project to learn assembler. A retro snake game like on the old Nokia phones, implemented in Linux terminal without any libraries, just plain ´syscall´ and terminal escape codes (I know that you are not supposed to do it like this). The score table is memory mapped in and conyains 3 characters per player for initials and 1 byte for the score for extra retro feel. The initial score table was just written in hexeditor, so no initialization routine neccessary. The whole thing runs in a Docker container.   
+A small project to learn assembly. A retro snake game like on the old Nokia phones, implemented in Linux terminal without any libraries, just plain `syscall` and terminal escape codes (I know that you are not supposed to do it like this). The score table is memory mapped in and contains 3 characters per player for initials and 1 byte for the score for extra retro feel. The initial score table was just written in hexeditor, so no initialization routine neccessary. In a modern twist, the whole thing runs in a Docker container.   
 
 ## Instructions
 ./run_container.sh
